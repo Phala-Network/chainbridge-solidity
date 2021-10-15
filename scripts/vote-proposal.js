@@ -3,6 +3,7 @@
 
 require('dotenv').config();
 const ethers = require('ethers');
+const utils = require('./utils');
 
 const OriginChainId = 1;    // khala
 
@@ -17,46 +18,58 @@ const waitForTx = async (provider, hash) => {
     }
 }
 
-function getDataHash(u256HexString, recipient) {
-    const data = '0x' + 
-        ERC20ContractAddress.substr(2) + 
-        u256HexString + 
-        ethers.utils.hexZeroPad(ethers.utils.bigNumberify(20).toHexString(), 32).substr(2) +  
-        recipient.substr(2);
-
-    return ethers.utils.keccak256(data);
-}
-
 async function main() {
-    let env = {};
-    env.url = 'https://mainnet.infura.io/v3/6d61e7957c1c489ea8141e947447405b';
-    env.privateKey = process.env.KEY;
-    env.provider = new ethers.providers.JsonRpcProvider(env.url);
-    console.log(`private: ${env.privateKey}, url: ${env.url}`);
-    env.wallet = new ethers.Wallet(env.privateKey, env.provider);
-    env.gasLimit = ethers.utils.hexlify(Number(process.env.GASLIMIT));
-    env.gasPrice = ethers.utils.hexlify(Number(process.env.GASPRICE));
+    const url = 'https://mainnet.infura.io/v3/6d61e7957c1c489ea8141e947447405b';
+    const privateKey = process.env.KEY;
+    const provider = new ethers.providers.JsonRpcProvider(url);
+    console.log(`private: ${privateKey}, url: ${url}`);
+    wallet = new ethers.Wallet(privateKey, provider);
+    const gasLimit = ethers.utils.hexlify(Number(process.env.GASLIMIT));
+    const gasPrice = ethers.utils.hexlify(Number(process.env.GASPRICE));
 
-    const nonce = process.env.NONCE;
-    const amount = process.env.AMOUNT;
+    const nonce = parseInt(process.env.NONCE);
+    const amount = utils.asHexNumber(process.env.AMOUNT);
     const recipient = process.env.RECIPIENT;
 
     const bridgeAbI = require('../build/contracts/Bridge.json').abi;
-    const bridge = new ethers.Contract('0xC84456ecA286194A201F844993C220150Cf22C63', bridgeAbI, env.provider);
+    const readonlyBridge = new ethers.Contract('0xC84456ecA286194A201F844993C220150Cf22C63', bridgeAbI, provider);
+    const bridge = readonlyBridge.connect(wallet);
 
-    let bnString;
-    if (typeof amount === 'string' || amount instanceof String) {
-        bnString = amount.substr(2);
-    } else {
-        bnString = ethers.utils.hexZeroPad(ethers.utils.bigNumberify(amount).toHexString(), 32).substr(2)
+    let bnString = ethers.utils.hexZeroPad(ethers.utils.bigNumberify(amount).toHexString(), 32).substr(2);
+    console.log({bnString, recipient});
+    let dataHash = utils.getDataHash(bnString, recipient);
+
+    console.log('Checking proposal status...');
+    let proposal = await readonlyBridge.getProposal(1, nonce, dataHash);
+    let parsedProposal = utils.proposalToHuman(proposal);
+    console.log(parsedProposal);
+    // skip now: parsedProposal.status != 'Inactive'
+    if (parsedProposal.status != 'Active') {
+        console.error('Proposal is not for voting');
+        process.exit(-1);
     }
-    let dataHash = getDataHash(bnString, recipient);
+    const relayerName = utils.resolveAddr(wallet.address);
+    if (parsedProposal.yesVotes.includes(relayerName) || parsedProposal.noVotes.includes(relayerName)) {
+        console.error('Relayer already voted');
+        process.exit(-1);
+    }
 
-    console.log(`Trying to vote proposal...`)
+    console.log(`Trying to vote on proposal ${dataHash}...`);
     // contract method: function voteProposal(uint8 chainID, uint64 depositNonce, bytes32 resourceID, bytes32 dataHash)
-    let voteTx = await bridge.voteProposal(OriginChainId, nonce, '00000000000000000000000000000063a7e2be78898ba83824b0c0cc8dfb6001', dataHash);
-    await waitForTx(voteTx);
-    console.log(`Transaction to vote proposal success!`);
+    let voteTx = await bridge.voteProposal(
+        OriginChainId,
+        nonce,
+        '0x00000000000000000000000000000063a7e2be78898ba83824b0c0cc8dfb6001',
+        dataHash,
+        { gasLimit, gasPrice }
+    );
+    await waitForTx(provider, voteTx.hash);
+    console.log(`Transaction to vote the proposal succeeded!`);
+
+    console.log('Checking proposal status...');
+    proposal = await readonlyBridge.getProposal(1, nonce, dataHash);
+    parsedProposal = utils.proposalToHuman(proposal);
+    console.log(parsedProposal);
 }
 
 main()
