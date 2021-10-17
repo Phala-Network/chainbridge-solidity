@@ -23,7 +23,6 @@
     "@openzeppelin/contracts": "=3.4.1",
     "@phala/typedefs": "^0.2.29",
     "@polkadot/api": "^6.3.1",
-    "bn.js": "^5.2.0",
     "commander": "^4.0.1",
     "dotenv": "^10.0.0",
     "rimraf": "^3.0.2",

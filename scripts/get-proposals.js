@@ -5,29 +5,9 @@ const ethers = require('ethers');
 const { ApiPromise, WsProvider } = require("@polkadot/api");
 const typedefs = require('@phala/typedefs').phalaDev;
 const fs = require('fs');
-const BN = require('bn.js');
+const utils = require('./utils');
 
-const ERC20ContractAddress = '0x6eD3bc069Cf4F87DE05c04C352E8356492EC6eFE';
 const BridgeContractAddress = '0xC84456ecA286194A201F844993C220150Cf22C63';
-const bn1e12 = new BN(10).pow(new BN(12));
-
-function utf8ToHex(str) 
-{
-    return Array.from(str).map(c =>
-        c.charCodeAt(0) < 128 ? c.charCodeAt(0).toString(16) :
-        encodeURIComponent(c).replace(/\%/g,'').toLowerCase()
-    ).join('');
-}
-
-function getDataHash(u256HexString, recipient) {
-    const data = '0x' + 
-        ERC20ContractAddress.substr(2) + 
-        u256HexString + 
-        ethers.utils.hexZeroPad(ethers.utils.bigNumberify(20).toHexString(), 32).substr(2) +  
-        recipient.substr(2);
-
-    return ethers.utils.keccak256(data);
-}
 
 async function getProposal(env, chain, nonce, u256HexString, recipient) {
     let ProposalStatus = ['Inactive', 'Active', 'Passed', 'Executed', 'Cancelled'];
@@ -35,19 +15,12 @@ async function getProposal(env, chain, nonce, u256HexString, recipient) {
     const bridgeAbI = require('../build/contracts/Bridge.json').abi;
     const bridge = new ethers.Contract(BridgeContractAddress, bridgeAbI, env.ethereumProvider);
 
-    let dataHash = getDataHash(u256HexString, recipient);
+    let dataHash = utils.getDataHash(u256HexString, recipient);
     let proposal = await bridge.getProposal(chain, nonce, dataHash);
-    // console.log(`Proposal information for deposit nonce ${nonce}`);
-    // console.log(`  voted relayers: ${proposal._yesVotes}`);
-    // console.log(`  proposal state: ${ProposalStatus[proposal._status]}`);
-    return {
-        votedRelayers: proposal._yesVotes,
-        proposalStatus: ProposalStatus[proposal._status]
-    };
+    return utils.proposalToHuman(proposal);
 }
 
 async function fetchSomeBlocksHash(api, from, to) {
-    console.log(`Start fetch batch blocks from ${from} to ${to}`);
     let promises = [];
     for (let height = from; height <= to; height++) {
         promises.push(
@@ -57,16 +30,6 @@ async function fetchSomeBlocksHash(api, from, to) {
                     reject(new Error(`Block ${height} does not exist`));
                 }
                 resolve(blockHash);
-
-                // try {
-                //     let block = await api.rpc.chain.getBlock(blockHash);
-                //     await api.rpc.chain.getBlockHash(blockNumber)
-                //     block.block.header.hash = blockHash;
-                //     block.hash = await api.rpc.chain.getBlockHash(height);
-                //     resolve(block.block);
-                // } catch (e) {
-                //     reject(e);
-                // }
             })
         );
     }
@@ -79,15 +42,10 @@ async function filterBridgeEvent(env, hash) {
     let events = (await env.api.query.chainBridge.bridgeEvents.at(hash)).toJSON();
     // console.log(`==> events: ${JSON.stringify(events, null, 2)}`);
     if (events.length > 0) {
-        console.log(`==> proposals belong to block ${hash}`);
+        console.log(`==> proposals exist in block ${hash}`);
         for (let i = 0; i < events.length; i++) {
             let args = events[i].fungibleTransfer;
-            let bnString;
-            if (typeof args.amount === 'string' || args.amount instanceof String) {
-                bnString = args.amount.substr(2);
-            } else {
-                bnString = ethers.utils.hexZeroPad(ethers.utils.bigNumberify(args.amount).toHexString(), 32).substr(2)
-            }
+            let bnString = ethers.utils.hexZeroPad(utils.asHexNumber(args.amount), 32).substr(2);
             // console.log(`big number: ${bnString}`);
 
             proposals.push({
@@ -120,13 +78,14 @@ async function processBlocks(env) {
     console.log(`step = ${step}, missingBlocks = ${missingBlocks}`);
     if (missingBlocks > step) {
         let nSteps = Math.floor(missingBlocks/step) + (missingBlocks%step === 0 ? 0 : 1);
-        console.log(`nSteps = ${nSteps}`);
+        console.log(`steps to run: ${nSteps}`);
         let startHeight = env.from;
         for (let counter = 0; counter < nSteps; counter++) {
             let from = startHeight;
             let to = counter === (nSteps -1) ? 
                 from + (missingBlocks%step - 1) : 
                 (from + step - 1);
+            console.log(`#[${counter}/${nSteps-1}] fetch batch block hash from ${from} to ${to}`);
             let hashList =  await fetchSomeBlocksHash(env.api, from, to);
 
             for (const hash of hashList) {
@@ -165,10 +124,8 @@ async function main() {
 
     // fetch blocks and checkout bridge transfer
     let proposals = await processBlocks(env);
-    console.log(`proposals: ${proposals}`);
 
     const jsonStr = JSON.stringify(proposals, null, 2);
-    console.log(`json str: ${jsonStr}`);
     fs.writeFileSync(`proposals-${env.from}-${env.to}.json`, jsonStr, { encoding: "utf-8" });
 }
 
