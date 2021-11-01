@@ -6,13 +6,13 @@ require('dotenv').config();
 const ethers = require('ethers');
 
 const ERC20Handler = require('../build/contracts/ERC20Handler.json');
-const BridgeAddress = '0xC84456ecA286194A201F844993C220150Cf22C63';
-const PHAAdderss = '0x6c5ba91642f10282b576d91922ae6448c9d52f4e';
-const ResourceId = '0x00000000000000000000000000000063a7e2be78898ba83824b0c0cc8dfb6001';
+const BridgeAddress = '0x181Ec55429e6188D8A22aE8e251f7282D952B3cf';
+// const PHAAdderss = '0x512f7a3c14b6ee86c2015bc8ac1fe97e657f75f2';
+// const ResourceId = '0x00000000000000000000000000000063a7e2be78898ba83824b0c0cc8dfb6001';
 
 async function deployERC20Handler(env) {
     const factory = new ethers.ContractFactory(ERC20Handler.abi, ERC20Handler.bytecode, env.wallet);
-    const contract = await factory.deploy(BridgeAddress, [ResourceId], [PHAAdderss], [], { gasPrice: env.gasPrice, gasLimit: env.gasLimit});
+    const contract = await factory.deploy(BridgeAddress, [], [], [], { gasPrice: env.gasPrice, gasLimit: env.gasLimit});
     await contract.deployed();
     env.erc20Handler = contract.address;
     console.log("✓ ERC20Handler deployed", contract.address);
