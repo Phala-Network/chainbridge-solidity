@@ -114,7 +114,7 @@ async function processBlocks(env) {
 async function main() {
     let env = {};
     env.ethereumUrl = 'https://mainnet.infura.io/v3/6d61e7957c1c489ea8141e947447405b';
-    env.khalaUrl = 'wss://khala.api.onfinality.io/public-ws';
+    env.khalaUrl = 'ws://10.96.89.253:9944';
     env.ethereumProvider = new ethers.providers.JsonRpcProvider(env.ethereumUrl);
     env.khalaProvider = new WsProvider(env.khalaUrl);
     env.from = Number(process.env.FROM);
@@ -124,9 +124,13 @@ async function main() {
 
     // fetch blocks and checkout bridge transfer
     let proposals = await processBlocks(env);
+    let imcompletedProposals = proposals.filter(p => { return (p.voteStatus !== 'Executed') && (p.voteStatus !== 'Cancelled')})
 
-    const jsonStr = JSON.stringify(proposals, null, 2);
+    let jsonStr = JSON.stringify(proposals, null, 2);
     fs.writeFileSync(`proposals-${env.from}-${env.to}.json`, jsonStr, { encoding: "utf-8" });
+
+    jsonStr = JSON.stringify(imcompletedProposals, null, 2);
+    fs.writeFileSync(`imcompleted-proposals-${env.from}-${env.to}.json`, jsonStr, { encoding: "utf-8" });
 }
 
 main()
