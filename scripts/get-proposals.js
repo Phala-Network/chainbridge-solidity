@@ -44,9 +44,15 @@ async function filterBridgeEvent(env, hash) {
     if (events.length > 0) {
         console.log(`==> proposals exist in block ${hash}`);
         for (let i = 0; i < events.length; i++) {
-            let args = events[i].fungibleTransfer;
+            let event = events[i].fungibleTransfer;
+            let args = {
+                destId: event[0],
+                nonce: event[1],
+                resourceId: event[2],
+                amount: event[3],
+                recipient: event[4]
+            };
             let bnString = ethers.utils.hexZeroPad(utils.asHexNumber(args.amount), 32).substr(2);
-            // console.log(`big number: ${bnString}`);
 
             proposals.push({
                 destId: args.destId,
@@ -114,7 +120,7 @@ async function processBlocks(env) {
 async function main() {
     let env = {};
     env.ethereumUrl = 'https://mainnet.infura.io/v3/6d61e7957c1c489ea8141e947447405b';
-    env.khalaUrl = 'ws://10.96.89.253:9944';
+    env.khalaUrl = 'wss://khala.api.onfinality.io/public-ws';
     env.ethereumProvider = new ethers.providers.JsonRpcProvider(env.ethereumUrl);
     env.khalaProvider = new WsProvider(env.khalaUrl);
     env.from = Number(process.env.FROM);
@@ -124,11 +130,12 @@ async function main() {
 
     // fetch blocks and checkout bridge transfer
     let proposals = await processBlocks(env);
-    let imcompletedProposals = proposals.filter(p => { return (p.voteStatus !== 'Executed') && (p.voteStatus !== 'Cancelled')})
+    let imcompletedProposals = proposals.filter(p => { return (p.voteStatus.status !== 'Executed') && (p.voteStatus.status !== 'Cancelled')})
 
     let jsonStr = JSON.stringify(proposals, null, 2);
     fs.writeFileSync(`proposals-${env.from}-${env.to}.json`, jsonStr, { encoding: "utf-8" });
 
+    if (imcompletedProposals.length === 0) return;
     jsonStr = JSON.stringify(imcompletedProposals, null, 2);
     fs.writeFileSync(`imcompleted-proposals-${env.from}-${env.to}.json`, jsonStr, { encoding: "utf-8" });
 }
