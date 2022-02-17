@@ -134,7 +134,7 @@ contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
             resourceID,
             recipientAddress,
             depositer,
-            amount.div(1e6) // Make it compatible with substrate token decimal
+            amount
         );
     }
 
@@ -177,11 +177,9 @@ contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
         require(_contractWhitelist[tokenAddress], "provided tokenAddress is not whitelisted");
 
         if (_burnList[tokenAddress]) {
-            // amount.mul(1e6): Make it compatible with substrate token decimal
-            mintERC20(tokenAddress, address(recipientAddress), amount.mul(1e6));
+            mintERC20(tokenAddress, address(recipientAddress), amount);
         } else {
-            // amount.mul(1e6): Make it compatible with substrate token decimal
-            releaseERC20(tokenAddress, address(recipientAddress), amount.mul(1e6));
+            releaseERC20(tokenAddress, address(recipientAddress), amount);
         }
     }
 
