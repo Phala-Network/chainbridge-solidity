@@ -17,6 +17,13 @@ interface IERCHandler {
      */
     function setBurnable(address contractAddress) external;
     /**
+        @notice Set {contractAddress} decimals on dest chain.
+        @param contractAddress Address of contract to be used when making or executing deposits.
+        @param srcDecimals Decimals of this token on source chain
+        @param destDecimals Decimals of this token on dest chain.
+     */
+    function setDecimals(address contractAddress, uint8 srcDecimals, uint8 destDecimals) external;
+    /**
         @notice Used to manually release funds from ERC safes.
         @param tokenAddress Address of token contract to release.
         @param recipient Address to release tokens to.

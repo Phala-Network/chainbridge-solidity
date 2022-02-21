@@ -8,6 +8,11 @@ import "../interfaces/IERCHandler.sol";
     @notice This contract is intended to be used with the Bridge contract.
  */
 contract HandlerHelpers is IERCHandler {
+    struct Decimals {
+        uint8 srcDecimals;
+        uint8 destDecimals;
+    }
+
     address public _bridgeAddress;
 
     // resourceID => token contract address
@@ -21,6 +26,9 @@ contract HandlerHelpers is IERCHandler {
 
     // token contract address => is burnable
     mapping (address => bool) public _burnList;
+
+    // token contract address => decimals
+    mapping (address => Decimals) public _decimals;
 
     modifier onlyBridge() {
         _onlyBridge();
@@ -55,6 +63,17 @@ contract HandlerHelpers is IERCHandler {
     }
 
     /**
+        @notice First verifies {contractAddress} is whitelisted, then sets {_decimals}[{contractAddress}]
+        to it's decimals value.
+        @param contractAddress Address of contract to be used when making or eexcuting deposits.
+        @param srcDecimals Decimals of this token on source chain
+        @param destDecimals Decimals of this token on dest chain.
+     */
+    function setDecimals(address contractAddress, uint8 srcDecimals, uint8 destDecimals) external override onlyBridge {
+        _setDecimals(contractAddress, srcDecimals, destDecimals);
+    }
+
+    /**
         @notice Used to manually release funds from ERC safes.
         @param tokenAddress Address of token contract to release.
         @param recipient Address to release tokens to.
@@ -72,5 +91,13 @@ contract HandlerHelpers is IERCHandler {
     function _setBurnable(address contractAddress) internal {
         require(_contractWhitelist[contractAddress], "provided contract is not whitelisted");
         _burnList[contractAddress] = true;
+    }
+
+    function _setDecimals(address contractAddress, uint8 srcDecimals, uint8 destDecimals) internal {
+        require(_contractWhitelist[contractAddress], "provided contract is not whitelisted");
+        _decimals[contractAddress] = Decimals({
+            srcDecimals: srcDecimals,
+            destDecimals: destDecimals
+        });
     }
 }

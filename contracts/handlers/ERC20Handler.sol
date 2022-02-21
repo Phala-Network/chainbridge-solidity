@@ -28,6 +28,9 @@ contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
     // depositNonce => Deposit Record
     mapping (uint8 => mapping(uint64 => DepositRecord)) public _depositRecords;
 
+    event Deposited(address indexed token, address indexed recipient, uint256 amount);
+    event Withdrawn(address indexed token, address indexed depositer, uint256 amount);
+
     /**
         @param bridgeAddress Contract address of previously deployed Bridge.
         @param initialResourceIDs Resource IDs are used to identify a specific contract address.
@@ -134,8 +137,10 @@ contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
             resourceID,
             recipientAddress,
             depositer,
-            amount
+            toDestBalance(tokenAddress, amount)
         );
+
+        emit Withdrawn(tokenAddress, depositer, amount);
     }
 
     /**
@@ -177,10 +182,12 @@ contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
         require(_contractWhitelist[tokenAddress], "provided tokenAddress is not whitelisted");
 
         if (_burnList[tokenAddress]) {
-            mintERC20(tokenAddress, address(recipientAddress), amount);
+            mintERC20(tokenAddress, address(recipientAddress), toSrcBalance(tokenAddress, amount));
         } else {
-            releaseERC20(tokenAddress, address(recipientAddress), amount);
+            releaseERC20(tokenAddress, address(recipientAddress), toSrcBalance(tokenAddress, amount));
         }
+
+        emit Deposited(tokenAddress, address(recipientAddress), toSrcBalance(tokenAddress, amount));
     }
 
     /**
@@ -191,5 +198,27 @@ contract ERC20Handler is IDepositExecute, HandlerHelpers, ERC20Safe {
      */
     function withdraw(address tokenAddress, address recipient, uint amount) external override onlyBridge {
         releaseERC20(tokenAddress, recipient, amount);
+    }
+
+    function toDestBalance(address tokenAddress, uint256 amount) internal returns(uint256) {
+        Decimals memory decimals = _decimals[tokenAddress];
+        // We are not allowed decimals not set or not set correctly
+        require(decimals.srcDecimals != 0 && decimals.destDecimals != 0, "Wrong decimals");
+        if (decimals.destDecimals >= decimals.srcDecimals) {
+            return amount.mul(10 ** (decimals.destDecimals - decimals.srcDecimals));
+        } else {
+            return amount.div(10 ** (decimals.srcDecimals - decimals.destDecimals));
+        }
+    }
+
+    function toSrcBalance(address tokenAddress, uint256 amount) internal returns(uint256) {
+        Decimals memory decimals = _decimals[tokenAddress];
+        // We are not allowed decimals not set or not set correctly
+        require(decimals.srcDecimals != 0 && decimals.destDecimals != 0, "Wrong decimals");
+        if (decimals.destDecimals >= decimals.srcDecimals) {
+            return amount.div(10 ** (decimals.destDecimals - decimals.srcDecimals));
+        } else {
+            return amount.mul(10 ** (decimals.srcDecimals - decimals.destDecimals));
+        }
     }
 }
