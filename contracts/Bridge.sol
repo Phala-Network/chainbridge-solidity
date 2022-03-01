@@ -120,7 +120,6 @@ contract Bridge is Pausable, AccessControl, SafeMath {
             grantRole(RELAYER_ROLE, initialRelayers[i]);
             _totalRelayers++;
         }
-
     }
 
     /**
@@ -248,6 +247,15 @@ contract Bridge is Pausable, AccessControl, SafeMath {
     function adminSetDecimals(address handlerAddress, address tokenAddress, uint8 srcDecimals, uint8 destDecimals) external onlyAdmin {
         IERCHandler handler = IERCHandler(handlerAddress);
         handler.setDecimals(tokenAddress, srcDecimals, destDecimals);
+    }
+
+    /**
+        @notice Sets a initial deposit nonce for dest chan, this is used to migrate to a new bridge contract.
+        @param chainId Dest chain id.
+        @param depositNonce Initial deposit nonce.
+     */
+    function adminSetDepositNonce(uint8 chainId, uint64 depositNonce) external onlyAdmin {
+        _depositCounts[chainId] = depositNonce;
     }
 
     /**
