@@ -31,7 +31,6 @@ async function main() {
     const url = 'https://mainnet.infura.io/v3/6d61e7957c1c489ea8141e947447405b';
     const privateKey = process.env.KEY;
     const provider = new ethers.providers.JsonRpcProvider(url);
-    console.log(`private: ${privateKey}, url: ${url}`);
     const wallet = new ethers.Wallet(privateKey, provider);
     const gasLimit = ethers.utils.hexlify(Number(process.env.GASLIMIT));
     const gasPrice = ethers.utils.hexlify(Number(process.env.GASPRICE));

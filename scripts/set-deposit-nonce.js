@@ -2,10 +2,10 @@ require('dotenv').config();
 const BridgeJson = require('../build/contracts/Bridge.json');
 const ethers = require('ethers');
 
-async function setDecimals(env, bridge, handler, token, srcDecimals, destDecimals) {
+async function setDepositNonce(env, bridge, chainId, depositNonce) {
     const bridgeInstance = new ethers.Contract(bridge, BridgeJson.abi, env.wallet);
-    const tx = await bridgeInstance.adminSetDecimals(handler, token, srcDecimals, destDecimals);
-    console.log(`Set token ${token} decimals, src: ${srcDecimals}, dest: ${destDecimals}, check tx ${tx.hash}`);
+    const tx = await bridgeInstance.adminSetDepositNonce(chainId, depositNonce);
+    console.log(`Set deposit nonce to ${depositNonce} for chain id ${chainId}, check tx ${tx.hash}`);
 }
 
 async function main() {
@@ -18,12 +18,10 @@ async function main() {
     env.gasPrice = ethers.utils.hexlify(Number(process.env.GASPRICE));
 
     const bridge = process.env.BRIDGE;
-    const handler = process.env.HANDLER;
-    const token = process.env.TOKEN;
-    const srcDecimals = process.env.SRC;
-    const destDecimals = process.env.DEST;
+    const chainId = process.env.CHAIN;
+    const depositNonce = process.env.NONCE;
 
-    await setDecimals(env, bridge, handler, token, srcDecimals, destDecimals);
+    await setDepositNonce(env, bridge, chainId, depositNonce);
 }
 
 main()
