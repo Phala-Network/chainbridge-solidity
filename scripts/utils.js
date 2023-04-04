@@ -1,28 +1,13 @@
 const ethers = require('ethers');
 
-function asHexNumber(x) {
-    if (typeof x === 'number') {
-        return ethers.utils.hexlify(x);
-    } else if (typeof x === 'string') {
-        if (x.startsWith('0x')) {
-            return x;
-        } else {
-            return ethers.utils.hexlify(ethers.utils.bigNumberify(x))
-        }
-    } else {
-        throw new Error('Unknown number type');
-    }
-}
-
-const ERC20HandlerAddress = '0x6ed3bc069cf4f87de05c04c352e8356492ec6efe';
+const ERC20HandlerAddress = '0xcd38b15a419491c7c1238b0659f65c755792e257';
 function getDataHash(u256HexString, recipient) {
     const data = '0x' + 
         ERC20HandlerAddress.substr(2) + 
         u256HexString + 
-        ethers.utils.hexZeroPad(ethers.utils.bigNumberify(20).toHexString(), 32).substr(2) +  
+        ethers.zeroPadValue(ethers.toBeHex(20), 32, true).substr(2) +  
         recipient.substr(2);
-
-    return ethers.utils.keccak256(data);
+    return ethers.keccak256(data);
 }
 
 function proposalToHuman(proposal) {
@@ -46,4 +31,4 @@ function resolveAddr(a) {
     return knownRelayers[a.toLowerCase()] || a;
 }
 
-module.exports = {asHexNumber, getDataHash, proposalToHuman, resolveAddr};
+module.exports = {getDataHash, proposalToHuman, resolveAddr};
